@@ -679,7 +679,7 @@ impl MyMarkdownWindow {
         let mut html_output = String::new();
         html::push_html(&mut html_output, parser);
 
-        // Wrap in HTML template with styling
+        // Wrap in HTML template with styling (dark mode default)
         let full_html = format!(
             r#"<!DOCTYPE html>
 <html>
@@ -687,7 +687,7 @@ impl MyMarkdownWindow {
     <meta charset="UTF-8">
     <style>
         :root {{
-            color-scheme: light dark;
+            color-scheme: dark;
         }}
 
         body {{
@@ -697,45 +697,19 @@ impl MyMarkdownWindow {
             padding: 24px;
             max-width: 100%;
             margin: 0;
-            background: transparent;
-            color: var(--text-color, #1c1c1c);
-        }}
-
-        @media (prefers-color-scheme: dark) {{
-            body {{
-                color: #f0f0f0;
-            }}
-
-            code, pre {{
-                background: #2d2d2d;
-            }}
-
-            blockquote {{
-                border-color: #555;
-                color: #aaa;
-            }}
-
-            a {{
-                color: #78aeed;
-            }}
-
-            table th, table td {{
-                border-color: #444;
-            }}
-
-            hr {{
-                border-color: #444;
-            }}
+            background: #1e1e1e;
+            color: #e0e0e0;
         }}
 
         h1, h2, h3, h4, h5, h6 {{
             margin-top: 1.5em;
             margin-bottom: 0.5em;
             font-weight: 600;
+            color: #ffffff;
         }}
 
-        h1 {{ font-size: 2em; border-bottom: 1px solid #ddd; padding-bottom: 0.3em; }}
-        h2 {{ font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }}
+        h1 {{ font-size: 2em; border-bottom: 1px solid #444; padding-bottom: 0.3em; }}
+        h2 {{ font-size: 1.5em; border-bottom: 1px solid #333; padding-bottom: 0.3em; }}
         h3 {{ font-size: 1.25em; }}
         h4 {{ font-size: 1em; }}
 
@@ -746,13 +720,14 @@ impl MyMarkdownWindow {
         code {{
             font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Source Code Pro", monospace;
             font-size: 0.9em;
-            background: #f4f4f4;
+            background: #2d2d2d;
+            color: #e6db74;
             padding: 0.2em 0.4em;
             border-radius: 4px;
         }}
 
         pre {{
-            background: #f4f4f4;
+            background: #2d2d2d;
             padding: 16px;
             border-radius: 8px;
             overflow-x: auto;
@@ -761,17 +736,18 @@ impl MyMarkdownWindow {
         pre code {{
             background: none;
             padding: 0;
+            color: #f8f8f2;
         }}
 
         blockquote {{
             margin: 1em 0;
             padding: 0.5em 1em;
-            border-left: 4px solid #ddd;
-            color: #666;
+            border-left: 4px solid #555;
+            color: #aaa;
         }}
 
         a {{
-            color: #1a73e8;
+            color: #78aeed;
             text-decoration: none;
         }}
 
@@ -794,18 +770,19 @@ impl MyMarkdownWindow {
         }}
 
         table th, table td {{
-            border: 1px solid #ddd;
+            border: 1px solid #444;
             padding: 8px 12px;
             text-align: left;
         }}
 
         table th {{
             font-weight: 600;
+            background: #2a2a2a;
         }}
 
         hr {{
             border: none;
-            border-top: 1px solid #ddd;
+            border-top: 1px solid #444;
             margin: 2em 0;
         }}
 
