@@ -70,7 +70,9 @@ mymd README.md      # Opens README.md
 | `Ctrl+O` | Open file |
 | `Ctrl+S` | Save |
 | `Ctrl+Shift+S` | Save As |
-| `Ctrl+P` | Toggle Preview |
+| `Ctrl+1` | Write mode |
+| `Ctrl+2` | Preview mode |
+| `Ctrl+\` | Toggle Split View |
 
 ## Tech Stack
 

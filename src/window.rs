@@ -8,6 +8,14 @@ use std::cell::{Cell, RefCell};
 use std::fs;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum ViewMode {
+    #[default]
+    Write,
+    Preview,
+    Split,
+}
+
 mod imp {
     use super::*;
 
@@ -16,9 +24,14 @@ mod imp {
         pub source_view: RefCell<Option<sourceview::View>>,
         pub web_view: RefCell<Option<webkit::WebView>>,
         pub current_file: RefCell<Option<PathBuf>>,
-        pub preview_visible: Cell<bool>,
+        pub view_mode: Cell<ViewMode>,
         pub updating: Cell<bool>,
         pub paned: RefCell<Option<gtk::Paned>>,
+        pub editor_frame: RefCell<Option<gtk::Frame>>,
+        pub preview_frame: RefCell<Option<gtk::Frame>>,
+        pub write_btn: RefCell<Option<gtk::ToggleButton>>,
+        pub preview_btn: RefCell<Option<gtk::ToggleButton>>,
+        pub split_btn: RefCell<Option<gtk::ToggleButton>>,
     }
 
     #[glib::object_subclass]
@@ -51,7 +64,9 @@ impl MyMarkdownWindow {
 
         window.setup_ui();
         window.setup_actions();
-        window.imp().preview_visible.set(true);
+
+        // Set initial mode to Split
+        window.set_view_mode(ViewMode::Split);
 
         // Handle file argument
         if let Some(filename) = file_arg {
@@ -91,12 +106,28 @@ impl MyMarkdownWindow {
         save_btn.set_tooltip_text(Some("Save (Ctrl+S)"));
         header.pack_start(&save_btn);
 
-        // Preview toggle button
-        let preview_btn = gtk::ToggleButton::new();
-        preview_btn.set_icon_name("view-reveal-symbolic");
-        preview_btn.set_tooltip_text(Some("Toggle Preview (Ctrl+P)"));
-        preview_btn.set_active(true);
-        header.pack_end(&preview_btn);
+        // View mode toggle buttons [Write] | [Preview]
+        let view_toggle_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        view_toggle_box.add_css_class("linked");
+
+        let write_btn = gtk::ToggleButton::with_label("Write");
+        write_btn.set_tooltip_text(Some("Write mode (Ctrl+1)"));
+
+        let preview_btn = gtk::ToggleButton::with_label("Preview");
+        preview_btn.set_tooltip_text(Some("Preview mode (Ctrl+2)"));
+        preview_btn.set_group(Some(&write_btn));
+
+        view_toggle_box.append(&write_btn);
+        view_toggle_box.append(&preview_btn);
+
+        header.set_title_widget(Some(&view_toggle_box));
+
+        // Split view toggle button
+        let split_btn = gtk::ToggleButton::new();
+        split_btn.set_icon_name("view-dual-symbolic");
+        split_btn.set_tooltip_text(Some("Toggle Split View (Ctrl+\\)"));
+        split_btn.set_active(true);
+        header.pack_end(&split_btn);
 
         // Menu button
         let menu_btn = gtk::MenuButton::new();
@@ -131,12 +162,18 @@ impl MyMarkdownWindow {
         paned.set_position(600);
 
         imp.paned.replace(Some(paned.clone()));
+        imp.editor_frame.replace(Some(editor_frame));
+        imp.preview_frame.replace(Some(preview_frame));
+        imp.write_btn.replace(Some(write_btn.clone()));
+        imp.preview_btn.replace(Some(preview_btn.clone()));
+        imp.split_btn.replace(Some(split_btn.clone()));
+
         main_box.append(&paned);
 
         self.set_content(Some(&main_box));
 
         // Connect signals
-        self.connect_signals(&new_btn, &open_btn, &save_btn, &preview_btn);
+        self.connect_signals(&new_btn, &open_btn, &save_btn, &write_btn, &preview_btn, &split_btn);
     }
 
     fn create_editor(&self) -> gtk::Frame {
@@ -280,7 +317,9 @@ impl MyMarkdownWindow {
         new_btn: &gtk::Button,
         open_btn: &gtk::Button,
         save_btn: &gtk::Button,
+        write_btn: &gtk::ToggleButton,
         preview_btn: &gtk::ToggleButton,
+        split_btn: &gtk::ToggleButton,
     ) {
         // New button
         let window = self.clone();
@@ -300,10 +339,58 @@ impl MyMarkdownWindow {
             window.save_file();
         });
 
-        // Preview toggle
+        // Write button
         let window = self.clone();
+        let split_btn_clone = split_btn.clone();
+        write_btn.connect_toggled(move |btn| {
+            if btn.is_active() && !window.imp().updating.get() {
+                window.imp().updating.set(true);
+                split_btn_clone.set_active(false);
+                window.set_view_mode(ViewMode::Write);
+                window.imp().updating.set(false);
+            }
+        });
+
+        // Preview button
+        let window = self.clone();
+        let split_btn_clone = split_btn.clone();
         preview_btn.connect_toggled(move |btn| {
-            window.toggle_preview(btn.is_active());
+            if btn.is_active() && !window.imp().updating.get() {
+                window.imp().updating.set(true);
+                split_btn_clone.set_active(false);
+                window.set_view_mode(ViewMode::Preview);
+                window.imp().updating.set(false);
+            }
+        });
+
+        // Split view toggle
+        let window = self.clone();
+        split_btn.connect_toggled(move |btn| {
+            if !window.imp().updating.get() {
+                window.imp().updating.set(true);
+                if btn.is_active() {
+                    // Deselect write/preview buttons
+                    if let Some(ref write_btn) = *window.imp().write_btn.borrow() {
+                        write_btn.set_active(false);
+                    }
+                    if let Some(ref preview_btn) = *window.imp().preview_btn.borrow() {
+                        preview_btn.set_active(false);
+                    }
+                    window.set_view_mode(ViewMode::Split);
+                } else {
+                    // If turning off split and neither write/preview is selected, select write
+                    let write_active = window.imp().write_btn.borrow().as_ref().map(|b| b.is_active()).unwrap_or(false);
+                    let preview_active = window.imp().preview_btn.borrow().as_ref().map(|b| b.is_active()).unwrap_or(false);
+
+                    if !write_active && !preview_active {
+                        if let Some(ref write_btn) = *window.imp().write_btn.borrow() {
+                            write_btn.set_active(true);
+                        }
+                        window.set_view_mode(ViewMode::Write);
+                    }
+                }
+                window.imp().updating.set(false);
+            }
         });
     }
 
@@ -347,16 +434,38 @@ impl MyMarkdownWindow {
         self.add_action(&action);
         app.set_accels_for_action("win.save-as", &["<Ctrl><Shift>s"]);
 
-        // Ctrl+P - Toggle Preview
-        let action = gio::SimpleAction::new("toggle-preview", None);
+        // Ctrl+1 - Write mode
+        let action = gio::SimpleAction::new("write-mode", None);
         let window = self.clone();
         action.connect_activate(move |_, _| {
-            let imp = window.imp();
-            let new_state = !imp.preview_visible.get();
-            window.toggle_preview(new_state);
+            if let Some(ref write_btn) = *window.imp().write_btn.borrow() {
+                write_btn.set_active(true);
+            }
         });
         self.add_action(&action);
-        app.set_accels_for_action("win.toggle-preview", &["<Ctrl>p"]);
+        app.set_accels_for_action("win.write-mode", &["<Ctrl>1"]);
+
+        // Ctrl+2 - Preview mode
+        let action = gio::SimpleAction::new("preview-mode", None);
+        let window = self.clone();
+        action.connect_activate(move |_, _| {
+            if let Some(ref preview_btn) = *window.imp().preview_btn.borrow() {
+                preview_btn.set_active(true);
+            }
+        });
+        self.add_action(&action);
+        app.set_accels_for_action("win.preview-mode", &["<Ctrl>2"]);
+
+        // Ctrl+\ - Toggle Split view
+        let action = gio::SimpleAction::new("toggle-split", None);
+        let window = self.clone();
+        action.connect_activate(move |_, _| {
+            if let Some(ref split_btn) = *window.imp().split_btn.borrow() {
+                split_btn.set_active(!split_btn.is_active());
+            }
+        });
+        self.add_action(&action);
+        app.set_accels_for_action("win.toggle-split", &["<Ctrl>backslash"]);
 
         // About action
         let action = gio::SimpleAction::new("about", None);
@@ -365,6 +474,35 @@ impl MyMarkdownWindow {
             window.show_about();
         });
         self.add_action(&action);
+    }
+
+    fn set_view_mode(&self, mode: ViewMode) {
+        let imp = self.imp();
+        imp.view_mode.set(mode);
+
+        if let (Some(editor_frame), Some(preview_frame), Some(paned)) = (
+            &*imp.editor_frame.borrow(),
+            &*imp.preview_frame.borrow(),
+            &*imp.paned.borrow(),
+        ) {
+            match mode {
+                ViewMode::Write => {
+                    editor_frame.set_visible(true);
+                    preview_frame.set_visible(false);
+                }
+                ViewMode::Preview => {
+                    editor_frame.set_visible(false);
+                    preview_frame.set_visible(true);
+                    self.update_preview();
+                }
+                ViewMode::Split => {
+                    editor_frame.set_visible(true);
+                    preview_frame.set_visible(true);
+                    paned.set_position(paned.width() / 2);
+                    self.update_preview();
+                }
+            }
+        }
     }
 
     fn handle_file_arg(&self, filename: &str) {
@@ -490,26 +628,11 @@ impl MyMarkdownWindow {
         }
     }
 
-    fn toggle_preview(&self, visible: bool) {
-        let imp = self.imp();
-        imp.preview_visible.set(visible);
-
-        if let Some(ref paned) = *imp.paned.borrow() {
-            if let Some(end_child) = paned.end_child() {
-                end_child.set_visible(visible);
-            }
-
-            // Adjust paned position
-            if visible {
-                paned.set_position(paned.width() / 2);
-            }
-        }
-    }
-
     fn update_preview(&self) {
         let imp = self.imp();
+        let mode = imp.view_mode.get();
 
-        if !imp.preview_visible.get() {
+        if mode == ViewMode::Write {
             return;
         }
 
