@@ -65,8 +65,16 @@ impl MyMarkdownWindow {
         window.setup_ui();
         window.setup_actions();
 
-        // Set initial mode to Split
-        window.set_view_mode(ViewMode::Split);
+        // Set initial mode to Write
+        window.set_view_mode(ViewMode::Write);
+
+        // Set write button as active
+        if let Some(ref write_btn) = *window.imp().write_btn.borrow() {
+            write_btn.set_active(true);
+        }
+        if let Some(ref split_btn) = *window.imp().split_btn.borrow() {
+            split_btn.set_active(false);
+        }
 
         // Handle file argument
         if let Some(filename) = file_arg {
@@ -126,7 +134,7 @@ impl MyMarkdownWindow {
         let split_btn = gtk::ToggleButton::new();
         split_btn.set_icon_name("view-dual-symbolic");
         split_btn.set_tooltip_text(Some("Toggle Split View (Ctrl+\\)"));
-        split_btn.set_active(true);
+        split_btn.set_active(false);
         header.pack_end(&split_btn);
 
         // Menu button
@@ -498,7 +506,17 @@ impl MyMarkdownWindow {
                 ViewMode::Split => {
                     editor_frame.set_visible(true);
                     preview_frame.set_visible(true);
-                    paned.set_position(paned.width() / 2);
+                    // Set position after window is realized
+                    let paned_clone = paned.clone();
+                    glib::idle_add_local_once(move || {
+                        let width = paned_clone.width();
+                        if width > 0 {
+                            paned_clone.set_position(width / 2);
+                        } else {
+                            // Fallback to default
+                            paned_clone.set_position(600);
+                        }
+                    });
                     self.update_preview();
                 }
             }
