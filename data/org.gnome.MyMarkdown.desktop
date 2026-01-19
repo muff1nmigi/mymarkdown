@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=MyMarkdown
+Comment=A native GNOME markdown editor with live preview
+Exec=mymd %F
+Icon=text-markdown
+Terminal=false
+Type=Application
+Categories=Utility;TextEditor;
+MimeType=text/markdown;text/x-markdown;
+Keywords=markdown;editor;text;preview;

@@ -1,0 +1,23 @@
+[package]
+name = "mymd"
+version = "0.1.0"
+edition = "2024"
+authors = ["Pan"]
+description = "A native GNOME markdown editor with live preview"
+license = "MIT"
+
+[[bin]]
+name = "mymd"
+path = "src/main.rs"
+
+[dependencies]
+gtk = { package = "gtk4", version = "0.10", features = ["v4_16"] }
+adw = { package = "libadwaita", version = "0.8", features = ["v1_6"] }
+sourceview = { package = "sourceview5", version = "0.10" }
+webkit = { package = "webkit6", version = "0.5" }
+pulldown-cmark = "0.12"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
