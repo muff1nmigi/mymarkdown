@@ -724,19 +724,24 @@ impl MyMarkdownWindow {
             color: #e6db74;
             padding: 0.2em 0.4em;
             border-radius: 4px;
+            word-break: break-word;
         }}
 
         pre {{
             background: #2d2d2d;
             padding: 16px;
             border-radius: 8px;
-            overflow-x: auto;
+            overflow-x: hidden;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }}
 
         pre code {{
             background: none;
             padding: 0;
             color: #f8f8f2;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }}
 
         blockquote {{
