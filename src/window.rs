@@ -203,11 +203,11 @@ impl MyMarkdownWindow {
             buffer.set_language(Some(&lang));
         }
 
-        // Set color scheme - try Adwaita-dark first, then default
+        // Set color scheme - use oblivion which has better inline code colors
         let scheme_manager = sourceview::StyleSchemeManager::default();
-        if let Some(scheme) = scheme_manager.scheme("Adwaita-dark")
+        if let Some(scheme) = scheme_manager.scheme("oblivion")
+            .or_else(|| scheme_manager.scheme("cobalt"))
             .or_else(|| scheme_manager.scheme("classic-dark"))
-            .or_else(|| scheme_manager.scheme("oblivion"))
         {
             buffer.set_style_scheme(Some(&scheme));
         }
