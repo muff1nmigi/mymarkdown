@@ -32,6 +32,8 @@ mod imp {
         pub write_btn: RefCell<Option<gtk::ToggleButton>>,
         pub preview_btn: RefCell<Option<gtk::ToggleButton>>,
         pub split_btn: RefCell<Option<gtk::ToggleButton>>,
+        pub modified: Cell<bool>,
+        pub close_confirmed: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -43,7 +45,20 @@ mod imp {
 
     impl ObjectImpl for MyMarkdownWindow {}
     impl WidgetImpl for MyMarkdownWindow {}
-    impl WindowImpl for MyMarkdownWindow {}
+    impl WindowImpl for MyMarkdownWindow {
+        fn close_request(&self) -> glib::Propagation {
+            let window = self.obj();
+
+            // If already confirmed or not modified, allow close
+            if self.close_confirmed.get() || !self.modified.get() {
+                return glib::Propagation::Proceed;
+            }
+
+            // Show confirmation dialog
+            window.show_close_confirmation();
+            glib::Propagation::Stop
+        }
+    }
     impl ApplicationWindowImpl for MyMarkdownWindow {}
     impl AdwApplicationWindowImpl for MyMarkdownWindow {}
 }
@@ -246,9 +261,10 @@ impl MyMarkdownWindow {
         // Setup paste handler for plain text
         self.setup_paste_handler(&source_view);
 
-        // Connect buffer changed signal for live preview
+        // Connect buffer changed signal for live preview and modified tracking
         let window = self.clone();
         buffer.connect_changed(move |_| {
+            window.imp().modified.set(true);
             window.update_preview();
         });
 
@@ -549,6 +565,8 @@ impl MyMarkdownWindow {
                 }
                 self.imp().current_file.replace(Some(path.clone()));
                 self.update_title();
+                // Reset modified after loading
+                self.imp().modified.set(false);
             }
             Err(e) => {
                 eprintln!("Error loading file: {}", e);
@@ -604,16 +622,22 @@ impl MyMarkdownWindow {
 
             if let Err(e) = fs::write(path, text.as_str()) {
                 eprintln!("Error saving file: {}", e);
+            } else {
+                // Reset modified flag after successful save
+                self.imp().modified.set(false);
             }
         }
     }
 
     fn new_file(&self) {
         self.imp().current_file.replace(None);
+        self.imp().modified.set(false);
         if let Some(ref source_view) = *self.imp().source_view.borrow() {
             source_view.buffer().set_text("");
         }
         self.set_title(Some("Untitled - MyMarkdown"));
+        // Reset modified after setting empty text
+        self.imp().modified.set(false);
     }
 
     fn open_file_dialog(&self) {
@@ -827,5 +851,42 @@ impl MyMarkdownWindow {
             .build();
 
         about.present(Some(self));
+    }
+
+    fn show_close_confirmation(&self) {
+        let dialog = adw::AlertDialog::builder()
+            .heading("Save Changes?")
+            .body("Do you want to save changes before closing?")
+            .close_response("cancel")
+            .default_response("save")
+            .build();
+
+        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("discard", "Don't Save");
+        dialog.add_response("save", "Save");
+
+        dialog.set_response_appearance("discard", adw::ResponseAppearance::Destructive);
+        dialog.set_response_appearance("save", adw::ResponseAppearance::Suggested);
+
+        let window = self.clone();
+        dialog.choose(Some(self), None::<&gio::Cancellable>, move |response| {
+            match response.as_str() {
+                "save" => {
+                    window.save_file();
+                    // Check if file was saved (has path)
+                    if window.imp().current_file.borrow().is_some() {
+                        window.imp().close_confirmed.set(true);
+                        window.close();
+                    }
+                }
+                "discard" => {
+                    window.imp().close_confirmed.set(true);
+                    window.close();
+                }
+                _ => {
+                    // Cancel - do nothing
+                }
+            }
+        });
     }
 }
