@@ -214,23 +214,8 @@ impl MyMarkdownWindow {
         scrolled.set_vexpand(true);
         scrolled.set_hexpand(true);
 
-        // Create source view with markdown language
+        // Create source view buffer (no syntax highlighting for clean Yaru theme)
         let buffer = sourceview::Buffer::new(None);
-
-        // Set markdown language for syntax highlighting
-        let lang_manager = sourceview::LanguageManager::default();
-        if let Some(lang) = lang_manager.language("markdown") {
-            buffer.set_language(Some(&lang));
-        }
-
-        // Set color scheme - use oblivion which has better inline code colors
-        let scheme_manager = sourceview::StyleSchemeManager::default();
-        if let Some(scheme) = scheme_manager.scheme("oblivion")
-            .or_else(|| scheme_manager.scheme("cobalt"))
-            .or_else(|| scheme_manager.scheme("classic-dark"))
-        {
-            buffer.set_style_scheme(Some(&scheme));
-        }
 
         let source_view = sourceview::View::with_buffer(&buffer);
         source_view.set_monospace(true);
