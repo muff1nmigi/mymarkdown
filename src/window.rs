@@ -295,10 +295,12 @@ impl MyMarkdownWindow {
         web_view.set_vexpand(true);
         web_view.set_hexpand(true);
 
-        // Disable editing in preview
+        // Disable editing and JavaScript in preview for security
         if let Some(settings) = webkit::prelude::WebViewExt::settings(&web_view) {
             settings.set_enable_write_console_messages_to_stdout(false);
             settings.set_enable_developer_extras(false);
+            settings.set_enable_javascript(false);
+            settings.set_enable_javascript_markup(false);
         }
 
         // Load initial empty content
@@ -650,6 +652,17 @@ impl MyMarkdownWindow {
     }
 
     fn new_file(&self) {
+        // Check for unsaved changes first
+        if self.imp().modified.get() {
+            self.show_discard_confirmation(|win| {
+                win.do_new_file();
+            });
+        } else {
+            self.do_new_file();
+        }
+    }
+
+    fn do_new_file(&self) {
         self.imp().current_file.replace(None);
         self.imp().modified.set(false);
         if let Some(ref source_view) = *self.imp().source_view.borrow() {
@@ -661,6 +674,17 @@ impl MyMarkdownWindow {
     }
 
     fn open_file_dialog(&self) {
+        // Check for unsaved changes first
+        if self.imp().modified.get() {
+            self.show_discard_confirmation(|win| {
+                win.do_open_file_dialog();
+            });
+        } else {
+            self.do_open_file_dialog();
+        }
+    }
+
+    fn do_open_file_dialog(&self) {
         let dialog = gtk::FileDialog::new();
         dialog.set_title("Open File");
 
@@ -871,6 +895,49 @@ impl MyMarkdownWindow {
             .build();
 
         about.present(Some(self));
+    }
+
+    fn show_discard_confirmation<F>(&self, on_continue: F)
+    where
+        F: Fn(&Self) + 'static,
+    {
+        let dialog = adw::AlertDialog::builder()
+            .heading("Discard Changes?")
+            .body("You have unsaved changes. Do you want to save them first?")
+            .close_response("cancel")
+            .default_response("save")
+            .build();
+
+        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("discard", "Discard");
+        dialog.add_response("save", "Save");
+
+        dialog.set_response_appearance("discard", adw::ResponseAppearance::Destructive);
+        dialog.set_response_appearance("save", adw::ResponseAppearance::Suggested);
+
+        let window = self.clone();
+        dialog.choose(Some(self), None::<&gio::Cancellable>, move |response| {
+            match response.as_str() {
+                "save" => {
+                    // Save first, then continue
+                    if window.imp().current_file.borrow().is_some() {
+                        window.save_file();
+                        on_continue(&window);
+                    } else {
+                        // Need to save as - this is async, so we can't easily chain
+                        // For simplicity, just save and let user try again
+                        window.save_file_as();
+                    }
+                }
+                "discard" => {
+                    window.imp().modified.set(false);
+                    on_continue(&window);
+                }
+                _ => {
+                    // Cancel - do nothing
+                }
+            }
+        });
     }
 
     fn show_close_confirmation(&self) {
