@@ -214,8 +214,22 @@ impl MyMarkdownWindow {
         scrolled.set_vexpand(true);
         scrolled.set_hexpand(true);
 
-        // Create source view buffer (no syntax highlighting for clean Yaru theme)
+        // Create source view with markdown language
         let buffer = sourceview::Buffer::new(None);
+
+        // Set markdown language for syntax highlighting
+        let lang_manager = sourceview::LanguageManager::default();
+        if let Some(lang) = lang_manager.language("markdown") {
+            buffer.set_language(Some(&lang));
+        }
+
+        // Use Adwaita-dark scheme as base (more neutral colors)
+        let scheme_manager = sourceview::StyleSchemeManager::default();
+        if let Some(scheme) = scheme_manager.scheme("Adwaita-dark")
+            .or_else(|| scheme_manager.scheme("classic-dark"))
+        {
+            buffer.set_style_scheme(Some(&scheme));
+        }
 
         let source_view = sourceview::View::with_buffer(&buffer);
         source_view.set_monospace(true);
@@ -236,126 +250,38 @@ impl MyMarkdownWindow {
         let css_provider = gtk::CssProvider::new();
         css_provider.load_from_string(
             r#"
-            /* Window background */
-            window, .background {
-                background-color: #1d1d1d;
-            }
-
-            /* Header bar */
-            headerbar {
-                background-color: #2d2d2d;
-                border-bottom: 1px solid #3d3d3d;
-            }
-
-            /* Buttons in headerbar */
-            headerbar button {
-                background-color: transparent;
-                color: #f0f0f0;
-            }
-
-            headerbar button:hover {
-                background-color: #3d3d3d;
-            }
-
-            headerbar button:active,
-            headerbar button:checked {
-                background-color: #E95420;
-                color: #ffffff;
-            }
-
-            /* Toggle buttons (Write/Preview) */
-            .linked button {
-                background-color: #2d2d2d;
-                color: #f0f0f0;
-                border-color: #3d3d3d;
-            }
-
-            .linked button:hover {
-                background-color: #3d3d3d;
-            }
-
+            /* Toggle buttons (Write/Preview) - orange when active */
             .linked button:checked {
-                background-color: #E95420;
+                background: #E95420;
                 color: #ffffff;
             }
 
-            /* Editor text area */
-            textview {
-                background-color: #1d1d1d;
-            }
-
-            textview text {
-                font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Ubuntu Mono", monospace;
-                font-size: 14px;
-                background-color: #1d1d1d;
-                color: #f0f0f0;
-                caret-color: #E95420;
-            }
-
-            textview text selection {
-                background-color: #E95420;
+            /* Split button when active */
+            headerbar button:checked {
+                background: #E95420;
                 color: #ffffff;
             }
 
-            /* Current line highlight */
-            textview .current-line {
-                background-color: #252525;
-            }
-
-            /* Line numbers gutter */
-            .source-view .line-numbers {
-                background-color: #1d1d1d;
-                color: #E95420;
-            }
-
-            /* Gutter styling */
-            .gutter {
-                background-color: #1d1d1d;
-            }
-
-            /* Paned separator */
+            /* Paned separator - orange accent */
             paned > separator {
                 background-color: #E95420;
                 min-width: 2px;
                 min-height: 2px;
             }
 
-            /* Scrollbars */
-            scrollbar {
-                background-color: #1d1d1d;
-            }
-
-            scrollbar slider {
-                background-color: #3d3d3d;
-                border-radius: 4px;
-                min-width: 8px;
-                min-height: 8px;
-            }
-
-            scrollbar slider:hover {
+            /* Text selection - orange */
+            textview text selection {
                 background-color: #E95420;
+                color: #ffffff;
             }
 
-            /* Frame */
-            frame {
-                background-color: #1d1d1d;
+            /* Caret color */
+            textview text {
+                caret-color: #E95420;
             }
 
-            frame > border {
-                border: none;
-            }
-
-            /* Scrolled window */
-            scrolledwindow {
-                background-color: #1d1d1d;
-            }
-
-            /* Menu popover */
-            popover, popover.background {
-                background-color: #2d2d2d;
-            }
-
-            popover modelbutton:hover {
+            /* Scrollbar hover - orange */
+            scrollbar slider:hover {
                 background-color: #E95420;
             }
             "#,
