@@ -747,7 +747,7 @@ impl MyMarkdownWindow {
         let mut html_output = String::new();
         html::push_html(&mut html_output, parser);
 
-        // Wrap in HTML template with styling (dark mode default)
+        // Wrap in HTML template with styling (Yaru dark orange theme)
         let full_html = format!(
             r#"<!DOCTYPE html>
 <html>
@@ -759,14 +759,14 @@ impl MyMarkdownWindow {
         }}
 
         body {{
-            font-family: "Cantarell", "Segoe UI", sans-serif;
+            font-family: "Cantarell", "Ubuntu", "Segoe UI", sans-serif;
             font-size: 15px;
             line-height: 1.6;
             padding: 24px;
             max-width: 100%;
             margin: 0;
-            background: #1e1e1e;
-            color: #e0e0e0;
+            background: #1d1d1d;
+            color: #f0f0f0;
         }}
 
         h1, h2, h3, h4, h5, h6 {{
@@ -776,8 +776,8 @@ impl MyMarkdownWindow {
             color: #ffffff;
         }}
 
-        h1 {{ font-size: 2em; border-bottom: 1px solid #444; padding-bottom: 0.3em; }}
-        h2 {{ font-size: 1.5em; border-bottom: 1px solid #333; padding-bottom: 0.3em; }}
+        h1 {{ font-size: 2em; border-bottom: 2px solid #E95420; padding-bottom: 0.3em; }}
+        h2 {{ font-size: 1.5em; border-bottom: 1px solid #3d3d3d; padding-bottom: 0.3em; }}
         h3 {{ font-size: 1.25em; }}
         h4 {{ font-size: 1em; }}
 
@@ -786,10 +786,10 @@ impl MyMarkdownWindow {
         }}
 
         code {{
-            font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Source Code Pro", monospace;
+            font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Ubuntu Mono", monospace;
             font-size: 0.9em;
             background: #2d2d2d;
-            color: #e6db74;
+            color: #ff7043;
             padding: 0.2em 0.4em;
             border-radius: 4px;
             word-break: break-word;
@@ -799,6 +799,7 @@ impl MyMarkdownWindow {
             background: #2d2d2d;
             padding: 16px;
             border-radius: 8px;
+            border-left: 3px solid #E95420;
             overflow-x: hidden;
             white-space: pre-wrap;
             word-wrap: break-word;
@@ -807,7 +808,7 @@ impl MyMarkdownWindow {
         pre code {{
             background: none;
             padding: 0;
-            color: #f8f8f2;
+            color: #f0f0f0;
             white-space: pre-wrap;
             word-wrap: break-word;
         }}
@@ -815,16 +816,18 @@ impl MyMarkdownWindow {
         blockquote {{
             margin: 1em 0;
             padding: 0.5em 1em;
-            border-left: 4px solid #555;
-            color: #aaa;
+            border-left: 4px solid #E95420;
+            background: #252525;
+            color: #b0b0b0;
         }}
 
         a {{
-            color: #78aeed;
+            color: #E95420;
             text-decoration: none;
         }}
 
         a:hover {{
+            color: #ff7043;
             text-decoration: underline;
         }}
 
@@ -836,6 +839,10 @@ impl MyMarkdownWindow {
             margin: 0.5em 0;
         }}
 
+        li::marker {{
+            color: #E95420;
+        }}
+
         table {{
             border-collapse: collapse;
             width: 100%;
@@ -843,25 +850,36 @@ impl MyMarkdownWindow {
         }}
 
         table th, table td {{
-            border: 1px solid #444;
+            border: 1px solid #3d3d3d;
             padding: 8px 12px;
             text-align: left;
         }}
 
         table th {{
             font-weight: 600;
-            background: #2a2a2a;
+            background: #E95420;
+            color: #ffffff;
+        }}
+
+        tr:nth-child(even) {{
+            background: #252525;
         }}
 
         hr {{
             border: none;
-            border-top: 1px solid #444;
+            border-top: 2px solid #E95420;
             margin: 2em 0;
         }}
 
         img {{
             max-width: 100%;
             height: auto;
+            border-radius: 8px;
+        }}
+
+        ::selection {{
+            background: #E95420;
+            color: #ffffff;
         }}
 
         /* Task list */
