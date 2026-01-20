@@ -38,6 +38,7 @@ mod imp {
         pub close_after_save: Cell<bool>,
         pub preview_scroll_percent: Cell<f64>,
         pub editor_scrolled: RefCell<Option<gtk::ScrolledWindow>>,
+        pub preview_update_pending: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -313,7 +314,7 @@ impl MyMarkdownWindow {
         let window = self.clone();
         buffer.connect_changed(move |_| {
             window.imp().modified.set(true);
-            window.update_preview();
+            window.schedule_preview_update();
         });
 
         // Connect scroll event for sync in split mode
@@ -839,6 +840,56 @@ impl MyMarkdownWindow {
         if let Some(ref path) = *self.imp().current_file.borrow() {
             let filename = path.file_name().unwrap_or_default().to_string_lossy();
             self.set_title(Some(&format!("{} - MyMarkdown", filename)));
+        }
+    }
+
+    fn schedule_preview_update(&self) {
+        let imp = self.imp();
+
+        // Skip if already pending or in write mode
+        if imp.preview_update_pending.get() || imp.view_mode.get() == ViewMode::Write {
+            return;
+        }
+
+        imp.preview_update_pending.set(true);
+
+        // Debounce: wait 150ms before updating
+        let window = self.clone();
+        glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+            window.imp().preview_update_pending.set(false);
+            window.update_preview_with_scroll_preserve();
+        });
+    }
+
+    fn update_preview_with_scroll_preserve(&self) {
+        let imp = self.imp();
+        let mode = imp.view_mode.get();
+
+        if mode == ViewMode::Write {
+            return;
+        }
+
+        // Save current scroll position before update
+        if mode == ViewMode::Split {
+            // Get current editor scroll percentage
+            if let Some(ref scrolled) = *imp.editor_scrolled.borrow() {
+                let adj = scrolled.vadjustment();
+                let upper = adj.upper() - adj.page_size();
+                if upper > 0.0 {
+                    imp.preview_scroll_percent.set(adj.value() / upper);
+                }
+            }
+        }
+
+        // Do the actual update
+        self.update_preview();
+
+        // Restore scroll position after a short delay (for content to load)
+        if mode == ViewMode::Split || mode == ViewMode::Preview {
+            let window = self.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_millis(50), move || {
+                window.restore_preview_scroll();
+            });
         }
     }
 
