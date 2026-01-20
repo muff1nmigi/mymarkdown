@@ -839,14 +839,11 @@ impl MyMarkdownWindow {
         pre {{
             background: #2d2d2d;
             padding: 16px;
-            padding-left: 3.5em;
             border-radius: 8px;
             border-left: 3px solid #E95420;
-            overflow-x: hidden;
+            overflow-x: auto;
             white-space: pre-wrap;
             word-wrap: break-word;
-            position: relative;
-            counter-reset: line;
         }}
 
         pre code {{
@@ -856,18 +853,6 @@ impl MyMarkdownWindow {
             white-space: pre-wrap;
             word-wrap: break-word;
             display: block;
-        }}
-
-        /* Line numbers for code blocks */
-        pre::before {{
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3em;
-            background: #252525;
-            border-radius: 8px 0 0 8px;
         }}
 
         blockquote {{
