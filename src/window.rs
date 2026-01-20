@@ -36,6 +36,8 @@ mod imp {
         pub close_confirmed: Cell<bool>,
         pub initial_dir: RefCell<PathBuf>,
         pub close_after_save: Cell<bool>,
+        pub preview_scroll_percent: Cell<f64>,
+        pub editor_scrolled: RefCell<Option<gtk::ScrolledWindow>>,
     }
 
     #[glib::object_subclass]
@@ -314,10 +316,25 @@ impl MyMarkdownWindow {
             window.update_preview();
         });
 
+        // Connect scroll event for sync in split mode
+        let vadjustment = scrolled.vadjustment();
+        let window = self.clone();
+        vadjustment.connect_value_changed(move |adj| {
+            let imp = window.imp();
+            if imp.view_mode.get() == ViewMode::Split && !imp.updating.get() {
+                let upper = adj.upper() - adj.page_size();
+                if upper > 0.0 {
+                    let percent = adj.value() / upper;
+                    window.sync_preview_scroll(percent);
+                }
+            }
+        });
+
         scrolled.set_child(Some(&source_view));
         frame.set_child(Some(&scrolled));
 
         imp.source_view.replace(Some(source_view));
+        imp.editor_scrolled.replace(Some(scrolled));
         frame
     }
 
@@ -336,11 +353,11 @@ impl MyMarkdownWindow {
         web_view.set_vexpand(true);
         web_view.set_hexpand(true);
 
-        // Disable editing and JavaScript in preview for security
+        // Configure WebView settings (enable JS for scroll sync)
         if let Some(settings) = webkit::prelude::WebViewExt::settings(&web_view) {
             settings.set_enable_write_console_messages_to_stdout(false);
             settings.set_enable_developer_extras(false);
-            settings.set_enable_javascript(false);
+            settings.set_enable_javascript(true);  // Needed for scroll sync
             settings.set_enable_javascript_markup(false);
         }
 
@@ -550,6 +567,13 @@ impl MyMarkdownWindow {
 
     fn set_view_mode(&self, mode: ViewMode) {
         let imp = self.imp();
+        let old_mode = imp.view_mode.get();
+
+        // Save preview scroll position before leaving Preview mode
+        if old_mode == ViewMode::Preview || old_mode == ViewMode::Split {
+            self.save_preview_scroll();
+        }
+
         imp.view_mode.set(mode);
 
         if let (Some(editor_frame), Some(preview_frame), Some(paned)) = (
@@ -566,6 +590,11 @@ impl MyMarkdownWindow {
                     editor_frame.set_visible(false);
                     preview_frame.set_visible(true);
                     self.update_preview();
+                    // Restore scroll position after content loads
+                    let window = self.clone();
+                    glib::timeout_add_local_once(std::time::Duration::from_millis(50), move || {
+                        window.restore_preview_scroll();
+                    });
                 }
                 ViewMode::Split => {
                     editor_frame.set_visible(true);
@@ -582,7 +611,65 @@ impl MyMarkdownWindow {
                         }
                     });
                     self.update_preview();
+                    // Sync to editor scroll position
+                    let window = self.clone();
+                    glib::timeout_add_local_once(std::time::Duration::from_millis(50), move || {
+                        window.sync_preview_to_editor();
+                    });
                 }
+            }
+        }
+    }
+
+    fn save_preview_scroll(&self) {
+        if let Some(ref web_view) = *self.imp().web_view.borrow() {
+            let window = self.clone();
+            web_view.evaluate_javascript(
+                "(function() { var h = document.body.scrollHeight - window.innerHeight; return h > 0 ? window.scrollY / h : 0; })()",
+                None,
+                None,
+                None::<&gio::Cancellable>,
+                move |result| {
+                    if let Ok(value) = result {
+                        let percent = value.to_double();
+                        window.imp().preview_scroll_percent.set(percent);
+                    }
+                },
+            );
+        }
+    }
+
+    fn restore_preview_scroll(&self) {
+        let percent = self.imp().preview_scroll_percent.get();
+        if percent > 0.0 {
+            self.sync_preview_scroll(percent);
+        }
+    }
+
+    fn sync_preview_scroll(&self, percent: f64) {
+        if let Some(ref web_view) = *self.imp().web_view.borrow() {
+            let js = format!(
+                "window.scrollTo(0, (document.body.scrollHeight - window.innerHeight) * {});",
+                percent
+            );
+            web_view.evaluate_javascript(
+                &js,
+                None,
+                None,
+                None::<&gio::Cancellable>,
+                |_| {},
+            );
+        }
+    }
+
+    fn sync_preview_to_editor(&self) {
+        let imp = self.imp();
+        if let Some(ref scrolled) = *imp.editor_scrolled.borrow() {
+            let adj = scrolled.vadjustment();
+            let upper = adj.upper() - adj.page_size();
+            if upper > 0.0 {
+                let percent = adj.value() / upper;
+                self.sync_preview_scroll(percent);
             }
         }
     }
