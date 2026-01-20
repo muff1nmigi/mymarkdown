@@ -1,7 +1,7 @@
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{gdk, gio, glib};
-use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{html, Options, Parser};
 use sourceview::prelude::*;
 use webkit::prelude::*;
 use std::cell::{Cell, RefCell};
@@ -336,15 +336,12 @@ impl MyMarkdownWindow {
         web_view.set_vexpand(true);
         web_view.set_hexpand(true);
 
-        // Configure WebView settings (enable JS for copy button functionality)
+        // Disable editing and JavaScript in preview for security
         if let Some(settings) = webkit::prelude::WebViewExt::settings(&web_view) {
             settings.set_enable_write_console_messages_to_stdout(false);
             settings.set_enable_developer_extras(false);
-            settings.set_enable_javascript(true);
+            settings.set_enable_javascript(false);
             settings.set_enable_javascript_markup(false);
-            // Disable potentially dangerous features
-            settings.set_allow_file_access_from_file_urls(false);
-            settings.set_allow_universal_access_from_file_urls(false);
         }
 
         // Load initial empty content
@@ -779,7 +776,7 @@ impl MyMarkdownWindow {
     }
 
     fn load_preview_content(&self, web_view: &webkit::WebView, markdown: &str) {
-        // Parse markdown to HTML with custom code block handling
+        // Parse markdown to HTML
         let mut options = Options::empty();
         options.insert(Options::ENABLE_STRIKETHROUGH);
         options.insert(Options::ENABLE_TABLES);
@@ -788,57 +785,8 @@ impl MyMarkdownWindow {
         options.insert(Options::ENABLE_SMART_PUNCTUATION);
 
         let parser = Parser::new_ext(markdown, options);
-
-        // Process events to handle code blocks specially
         let mut html_output = String::new();
-        let mut in_code_block = false;
-        let mut code_lang = String::new();
-        let mut code_content = String::new();
-
-        let mut modified_events: Vec<Event> = Vec::new();
-
-        for event in parser {
-            match &event {
-                Event::Start(Tag::CodeBlock(kind)) => {
-                    in_code_block = true;
-                    code_lang = match kind {
-                        CodeBlockKind::Fenced(lang) => lang.to_string(),
-                        CodeBlockKind::Indented => String::new(),
-                    };
-                    code_content.clear();
-                    continue;
-                }
-                Event::End(TagEnd::CodeBlock) => {
-                    in_code_block = false;
-                    // Generate custom code block HTML
-                    let lang_display = if code_lang.is_empty() { "text".to_string() } else { code_lang.clone() };
-                    let lang_class = if code_lang.is_empty() { "text".to_string() } else { code_lang.clone() };
-                    let escaped_code = code_content
-                        .replace('&', "&amp;")
-                        .replace('<', "&lt;")
-                        .replace('>', "&gt;");
-                    let escaped_for_js = code_content
-                        .replace('\\', "\\\\")
-                        .replace('`', "\\`")
-                        .replace('$', "\\$");
-
-                    let code_block_html = format!(
-                        r#"<div class="code-block"><div class="code-header"><span class="lang-badge">{}</span><button class="copy-btn" onclick="copyCode(this, `{}`)">Copy</button></div><pre><code class="language-{}">{}</code></pre></div>"#,
-                        lang_display, escaped_for_js, lang_class, escaped_code
-                    );
-                    modified_events.push(Event::Html(code_block_html.into()));
-                    continue;
-                }
-                Event::Text(text) if in_code_block => {
-                    code_content.push_str(text);
-                    continue;
-                }
-                _ => {}
-            }
-            modified_events.push(event);
-        }
-
-        html::push_html(&mut html_output, modified_events.into_iter());
+        html::push_html(&mut html_output, parser);
 
         // Wrap in HTML template with styling (Yaru dark orange theme)
         let full_html = format!(
@@ -878,7 +826,6 @@ impl MyMarkdownWindow {
             margin: 1em 0;
         }}
 
-        /* Inline code */
         code {{
             font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Ubuntu Mono", monospace;
             font-size: 0.9em;
@@ -889,91 +836,39 @@ impl MyMarkdownWindow {
             word-break: break-word;
         }}
 
-        /* Code block container */
-        .code-block {{
-            position: relative;
-            margin: 1em 0;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #1e1e1e;
-        }}
-
-        .code-header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        pre {{
             background: #2d2d2d;
-            padding: 8px 16px;
-            border-bottom: 1px solid #3d3d3d;
-        }}
-
-        .lang-badge {{
-            font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
-            font-size: 0.8em;
-            color: #E95420;
-            text-transform: uppercase;
-            font-weight: 600;
-        }}
-
-        .copy-btn {{
-            background: #3d3d3d;
-            border: none;
-            color: #f0f0f0;
-            padding: 4px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8em;
-            transition: background 0.2s;
-        }}
-
-        .copy-btn:hover {{
-            background: #E95420;
-        }}
-
-        .copy-btn.copied {{
-            background: #4CAF50;
-        }}
-
-        .code-block pre {{
-            margin: 0;
             padding: 16px;
-            background: #1e1e1e;
-            border-radius: 0;
-            border-left: none;
-            overflow-x: auto;
+            padding-left: 3.5em;
+            border-radius: 8px;
+            border-left: 3px solid #E95420;
+            overflow-x: hidden;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            position: relative;
+            counter-reset: line;
         }}
 
-        .code-block pre code {{
+        pre code {{
             background: none;
             padding: 0;
-            color: #d4d4d4;
-            font-size: 0.9em;
-            line-height: 1.5;
+            color: #f0f0f0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: block;
         }}
 
-        /* Syntax highlighting - VSCode Dark+ inspired */
-        .language-python .kw, .language-py .kw {{ color: #569cd6; }}
-        .language-python .str, .language-py .str {{ color: #ce9178; }}
-        .language-python .num, .language-py .num {{ color: #b5cea8; }}
-        .language-python .func, .language-py .func {{ color: #dcdcaa; }}
-        .language-python .comment, .language-py .comment {{ color: #6a9955; }}
-
-        .language-javascript .kw, .language-js .kw {{ color: #569cd6; }}
-        .language-javascript .str, .language-js .str {{ color: #ce9178; }}
-        .language-javascript .num, .language-js .num {{ color: #b5cea8; }}
-        .language-javascript .func, .language-js .func {{ color: #dcdcaa; }}
-
-        .language-bash .kw, .language-sh .kw, .language-shell .kw {{ color: #569cd6; }}
-        .language-bash .str, .language-sh .str, .language-shell .str {{ color: #ce9178; }}
-        .language-bash .var, .language-sh .var, .language-shell .var {{ color: #9cdcfe; }}
-
-        .language-rust .kw {{ color: #569cd6; }}
-        .language-rust .str {{ color: #ce9178; }}
-        .language-rust .macro {{ color: #4ec9b0; }}
-
-        .language-json .key {{ color: #9cdcfe; }}
-        .language-json .str {{ color: #ce9178; }}
-        .language-json .num {{ color: #b5cea8; }}
+        /* Line numbers for code blocks */
+        pre::before {{
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3em;
+            background: #252525;
+            border-radius: 8px 0 0 8px;
+        }}
 
         blockquote {{
             margin: 1em 0;
@@ -1057,20 +952,6 @@ impl MyMarkdownWindow {
 </head>
 <body>
 {html_output}
-<script>
-function copyCode(btn, code) {{
-    navigator.clipboard.writeText(code).then(() => {{
-        btn.textContent = 'Copied!';
-        btn.classList.add('copied');
-        setTimeout(() => {{
-            btn.textContent = 'Copy';
-            btn.classList.remove('copied');
-        }}, 2000);
-    }}).catch(err => {{
-        console.error('Failed to copy:', err);
-    }});
-}}
-</script>
 </body>
 </html>"#
         );
