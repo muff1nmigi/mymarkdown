@@ -269,6 +269,18 @@ impl MyMarkdownWindow {
                 min-height: 2px;
             }
 
+            /* Line numbers gutter - dark charcoal with orange text */
+            .source-view gutter {
+                background-color: #252525;
+                padding: 0 8px;
+            }
+
+            .source-view .line-numbers {
+                background-color: #252525;
+                color: #E95420;
+                font-weight: 500;
+            }
+
             /* Text selection - orange */
             textview text selection {
                 background-color: #E95420;
