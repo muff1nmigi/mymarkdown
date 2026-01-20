@@ -247,20 +247,138 @@ impl MyMarkdownWindow {
         source_view.set_top_margin(12);
         source_view.set_bottom_margin(12);
 
-        // Apply JetBrains Mono font via CSS
+        // Apply Yaru dark orange theme via CSS
         let css_provider = gtk::CssProvider::new();
         css_provider.load_from_string(
             r#"
+            /* Window background */
+            window, .background {
+                background-color: #1d1d1d;
+            }
+
+            /* Header bar */
+            headerbar {
+                background-color: #2d2d2d;
+                border-bottom: 1px solid #3d3d3d;
+            }
+
+            /* Buttons in headerbar */
+            headerbar button {
+                background-color: transparent;
+                color: #f0f0f0;
+            }
+
+            headerbar button:hover {
+                background-color: #3d3d3d;
+            }
+
+            headerbar button:active,
+            headerbar button:checked {
+                background-color: #E95420;
+                color: #ffffff;
+            }
+
+            /* Toggle buttons (Write/Preview) */
+            .linked button {
+                background-color: #2d2d2d;
+                color: #f0f0f0;
+                border-color: #3d3d3d;
+            }
+
+            .linked button:hover {
+                background-color: #3d3d3d;
+            }
+
+            .linked button:checked {
+                background-color: #E95420;
+                color: #ffffff;
+            }
+
+            /* Editor text area */
+            textview {
+                background-color: #1d1d1d;
+            }
+
             textview text {
-                font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Source Code Pro", monospace;
+                font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Ubuntu Mono", monospace;
                 font-size: 14px;
+                background-color: #1d1d1d;
+                color: #f0f0f0;
+                caret-color: #E95420;
+            }
+
+            textview text selection {
+                background-color: #E95420;
+                color: #ffffff;
+            }
+
+            /* Current line highlight */
+            textview .current-line {
+                background-color: #252525;
+            }
+
+            /* Line numbers gutter */
+            .source-view .line-numbers {
+                background-color: #1d1d1d;
+                color: #E95420;
+            }
+
+            /* Gutter styling */
+            .gutter {
+                background-color: #1d1d1d;
+            }
+
+            /* Paned separator */
+            paned > separator {
+                background-color: #E95420;
+                min-width: 2px;
+                min-height: 2px;
+            }
+
+            /* Scrollbars */
+            scrollbar {
+                background-color: #1d1d1d;
+            }
+
+            scrollbar slider {
+                background-color: #3d3d3d;
+                border-radius: 4px;
+                min-width: 8px;
+                min-height: 8px;
+            }
+
+            scrollbar slider:hover {
+                background-color: #E95420;
+            }
+
+            /* Frame */
+            frame {
+                background-color: #1d1d1d;
+            }
+
+            frame > border {
+                border: none;
+            }
+
+            /* Scrolled window */
+            scrolledwindow {
+                background-color: #1d1d1d;
+            }
+
+            /* Menu popover */
+            popover, popover.background {
+                background-color: #2d2d2d;
+            }
+
+            popover modelbutton:hover {
+                background-color: #E95420;
             }
             "#,
         );
         gtk::style_context_add_provider_for_display(
             &gdk::Display::default().unwrap(),
             &css_provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
         );
 
         // Setup paste handler for plain text
