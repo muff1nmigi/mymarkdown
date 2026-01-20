@@ -16,6 +16,7 @@ adw = { package = "libadwaita", version = "0.8", features = ["v1_6"] }
 sourceview = { package = "sourceview5", version = "0.10" }
 webkit = { package = "webkit6", version = "0.5" }
 pulldown-cmark = "0.12"
+dirs = "6"
 
 [profile.release]
 opt-level = 3

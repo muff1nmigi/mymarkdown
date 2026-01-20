@@ -34,6 +34,8 @@ mod imp {
         pub split_btn: RefCell<Option<gtk::ToggleButton>>,
         pub modified: Cell<bool>,
         pub close_confirmed: Cell<bool>,
+        pub initial_dir: RefCell<PathBuf>,
+        pub close_after_save: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -70,12 +72,15 @@ glib::wrapper! {
 }
 
 impl MyMarkdownWindow {
-    pub fn new(app: &crate::app::MyMarkdownApp, file_arg: Option<String>) -> Self {
+    pub fn new(app: &crate::app::MyMarkdownApp, file_arg: Option<String>, initial_dir: PathBuf) -> Self {
         let window: Self = glib::Object::builder()
             .property("application", app)
             .property("default-width", 1200)
             .property("default-height", 800)
             .build();
+
+        // Store initial directory
+        window.imp().initial_dir.replace(initial_dir);
 
         window.setup_ui();
         window.setup_actions();
@@ -596,6 +601,11 @@ impl MyMarkdownWindow {
         filters.append(&filter);
         dialog.set_filters(Some(&filters));
 
+        // Set initial folder
+        let initial_dir = self.imp().initial_dir.borrow().clone();
+        let initial_folder = gio::File::for_path(&initial_dir);
+        dialog.set_initial_folder(Some(&initial_folder));
+
         let window = self.clone();
         dialog.save(Some(&window.clone()), None::<&gio::Cancellable>, move |result| {
             if let Ok(file) = result {
@@ -608,7 +618,17 @@ impl MyMarkdownWindow {
                     window.imp().current_file.replace(Some(path.clone()));
                     window.write_file(&path);
                     window.update_title();
+
+                    // If close was requested after save, close now
+                    if window.imp().close_after_save.get() {
+                        window.imp().close_after_save.set(false);
+                        window.imp().close_confirmed.set(true);
+                        window.close();
+                    }
                 }
+            } else {
+                // User cancelled save dialog, reset close_after_save flag
+                window.imp().close_after_save.set(false);
             }
         });
     }
@@ -872,9 +892,13 @@ impl MyMarkdownWindow {
         dialog.choose(Some(self), None::<&gio::Cancellable>, move |response| {
             match response.as_str() {
                 "save" => {
+                    // Set flag so save_file_as knows to close after save
+                    if window.imp().current_file.borrow().is_none() {
+                        window.imp().close_after_save.set(true);
+                    }
                     window.save_file();
-                    // Check if file was saved (has path)
-                    if window.imp().current_file.borrow().is_some() {
+                    // For existing files, close immediately
+                    if window.imp().current_file.borrow().is_some() && !window.imp().close_after_save.get() {
                         window.imp().close_confirmed.set(true);
                         window.close();
                     }
